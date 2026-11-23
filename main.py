@@ -1,39 +1,68 @@
-"""Monday Edition: the world news of Monday 23 November 2026, in one image.
+"""News-image entry runner for 23 Nov 2026.
 
-This program writes the entry image to ``entry.png`` in the output
-folder. The image itself ships in this repository as ``entry.png``: a
-single-page newspaper front page, "THE WORLD IN ONE DAY", drawn by
-``draw.py`` with Pillow at build time. This program only copies those
-bytes, so both runs produce identical output. No network, no clock,
-no randomness, standard library only.
+The finished picture already lives in this repo as entry.png.
+This script's only job is to place an exact copy of it where the
+judge expects the output: /output/entry.png.
 
-The six stories on the page, all first reported Monday 23 Nov 2026:
-1. KOSPI crashes 5% in Seoul (AI rout; 10-trillion-won rescue fund).
-2. M6.5 deep earthquake, Vanuatu region (02:40 UTC, 601 km down).
-3. New Zealand bat out a draw vs India, Wellington (day five).
-4. Modi meets Nepal PM Balen Shah in Delhi (welcome + talks).
-5. NHS launches EDITH, the world's largest AI breast-screening trial.
-6. UN demands a probe into the Libya ship strikes off Benghazi.
+No network, no randomness, no extra dependencies — just the
+standard library, so the result is byte-for-byte identical on
+every run.
 """
 
 import hashlib
 import os
 import shutil
-from pathlib import Path
+import sys
 
-HERE = Path(__file__).resolve().parent
-SRC = HERE / "entry.png"
+SOURCE_NAME = "entry.png"
+DEST_DIR = "/output"
+DEST_NAME = "entry.png"
 
 
-def main():
-    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
-    out_dir.mkdir(parents=True, exist_ok=True)
-    dest = out_dir / "entry.png"
-    shutil.copyfile(SRC, dest)
-    data = dest.read_bytes()
-    print(f"wrote {dest}  {len(data)} bytes")
-    print(f"sha256 {hashlib.sha256(data).hexdigest()}")
+def locate_picture():
+    """Return the absolute path of the picture bundled with this repo."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, SOURCE_NAME)
+
+
+def make_destination_folder():
+    """Create /output when it is missing and return its path."""
+    os.makedirs(DEST_DIR, exist_ok=True)
+    return DEST_DIR
+
+
+def fingerprint(path):
+    """Compute the SHA-256 hex digest of a file, chunk by chunk."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            block = handle.read(65536)
+            if not block:
+                break
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def place_picture():
+    """Copy the bundled picture into /output and report both hashes."""
+    origin = locate_picture()
+    if not os.path.isfile(origin):
+        print("entry.png tidak ditemukan di folder repo", file=sys.stderr)
+        return 1
+    folder = make_destination_folder()
+    target = os.path.join(folder, DEST_NAME)
+    shutil.copyfile(origin, target)
+    source_hash = fingerprint(origin)
+    target_hash = fingerprint(target)
+    print("Disalin: %s -> %s" % (origin, target))
+    print("sha256 sumber : %s" % source_hash)
+    print("sha256 keluaran: %s" % target_hash)
+    if source_hash != target_hash:
+        print("GALAT: hash keluaran berbeda dari sumber", file=sys.stderr)
+        return 2
+    print("OK: keluaran identik dengan sumber")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(place_picture())
